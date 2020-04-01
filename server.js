@@ -9,7 +9,7 @@ server.listen(3000, function () {
 });
 
 const port = new SerialPort('/dev/ttyAMA0', {baudRate: 9600});
-port.pipe(new Readline({ delimiter: '\r\n' }))
+const parser = port.pipe(new Readline({delimiter: '\r\n'}));
 var gps = new GPS;
 
 io.on('connect', onConnect);
@@ -18,12 +18,13 @@ function onConnect(socket) {
     console.log("Connection!");
 }
 
-gps.on('data', function(data) {
-    console.log('sending data now on socket io');
-    io.sockets.emit('coord_update', JSON.stringify({lat: gps.state.lat, lon: gps.state.lon}));
+gps.on('data', data => {
+    if (data.type == "GGA" && data.quality != null) {
+        console.log('sending data now on socket io');
+        io.sockets.emit('coord_update', JSON.stringify({lat: data.lat, lon: data.lon}));
+    }
 });
 
-port.on('data', function(data) {
-    gps.updatePartial(data);
-    console.log(gps.state);
+parser.on('data', data => {
+    gps.update(data);
 });
